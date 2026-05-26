@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DVGA-Node: Damn Vulnerable GraphQL Application</title>
+  <meta name="description" content="A deliberately insecure GraphQL API built with Node.js, Apollo Server 4, and PostgreSQL. Learn to identify, exploit, and mitigate real-world API vulnerabilities through hands-on challenges.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #080c14;
+      --bg-secondary: #0f1322;
+      --bg-card: #161b30;
+      --bg-card-hover: #1b223c;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent: #38bdf8;
+      --accent-rgb: 56, 189, 248;
+      --accent-glow: rgba(56, 189, 248, 0.08);
+      --green: #10b981;
+      --red: #f43f5e;
+      --orange: #f59e0b;
+      --purple: #a78bfa;
+      --border: #1e293b;
+      --border-accent: #334155;
+      --radius-lg: 16px;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --font-main: 'Outfit', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font-main);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.03) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(167, 139, 250, 0.02) 0%, transparent 40%);
+    }
+
+    /* ---- Header ---- */
+    .landing-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 48px;
+      background: rgba(15, 19, 34, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .landing-header .logo h1 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 40%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .landing-header .logo h1 .sub { color: var(--text-muted); font-weight: 400; font-size: 1.1rem; margin-left: 2px; -webkit-text-fill-color: var(--text-muted); }
+    .landing-header nav a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-weight: 500;
+      margin-left: 32px;
+      transition: all 0.2s ease;
+      font-size: 0.95rem;
+    }
+    .landing-header nav a:hover { color: var(--accent); }
+    .landing-header nav a.active-link {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      color: var(--accent);
+      padding: 6px 16px;
+      border-radius: 20px;
+    }
+
+    /* ---- Hero ---- */
+    .hero {
+      text-align: center;
+      padding: 96px 24px 64px;
+      position: relative;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(244, 63, 94, 0.08);
+      color: var(--red);
+      font-weight: 600;
+      font-size: 0.78rem;
+      padding: 6px 16px;
+      border-radius: 30px;
+      border: 1px solid rgba(244, 63, 94, 0.2);
+      margin-bottom: 24px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .hero h2 {
+      font-size: 3.4rem;
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      margin-bottom: 20px;
+      line-height: 1.2;
+      background: linear-gradient(135deg, #ffffff 30%, var(--accent) 70%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: 1.2rem;
+      color: var(--text-secondary);
+      max-width: 720px;
+      margin: 0 auto 40px;
+      line-height: 1.7;
+      font-weight: 300;
+    }
+
+    /* ---- CTA Cards ---- */
+    .cta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      max-width: 840px;
+      margin: 0 auto 72px;
+      padding: 0 24px;
+    }
+    .cta-card {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-decoration: none;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 32px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at top right, rgba(var(--accent-rgb), 0.1), transparent 50%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .cta-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--accent);
+      box-shadow: 0 10px 30px rgba(8, 12, 20, 0.5), 0 0 30px rgba(56, 189, 248, 0.05);
+      transform: translateY(-4px);
+    }
+    .cta-card:hover::after {
+      opacity: 1;
+    }
+    .cta-icon-wrapper {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-sm);
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      color: var(--accent);
+    }
+    .cta-card h3 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+    .cta-card p {
+      font-size: 0.94rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      text-align: left;
+    }
+
+    /* ---- Sections ---- */
+    .section {
+      max-width: 960px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 24px 64px;
+    }
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 24px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .section-title svg {
+      color: var(--accent);
+      width: 24px;
+      height: 24px;
+    }
+
+    /* ---- Credentials Table ---- */
+    .table-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    .cred-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+    .cred-table thead th {
+      background: rgba(15, 19, 34, 0.5);
+      color: var(--text-secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      padding: 16px 20px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .cred-table tbody td {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+    .cred-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .cred-table tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+    .cred-table code {
+      font-family: var(--font-mono);
+      background: rgba(56, 189, 248, 0.05);
+      color: var(--accent);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      border: 1px solid rgba(56, 189, 248, 0.1);
+    }
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .role-admin { background: rgba(244, 63, 94, 0.08); color: var(--red); border: 1px solid rgba(244, 63, 94, 0.15); }
+    .role-user { background: rgba(16, 185, 129, 0.08); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.15); }
+
+    /* ---- Architecture Cards ---- */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .arch-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition: border-color 0.3s ease;
+    }
+    .arch-card:hover { border-color: var(--border-accent); }
+    .arch-card h4 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--accent);
+    }
+    .arch-card p {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ---- Modes ---- */
+    .modes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .mode-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .mode-card h4 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mode-card p {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .mode-vuln { border-left: 4px solid var(--red); }
+    .mode-vuln h4 { color: var(--red); }
+    .mode-secure { border-left: 4px solid var(--green); }
+    .mode-secure h4 { color: var(--green); }
+
+    /* ---- Vuln Quick List ---- */
+    .vuln-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .vuln-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.25s ease;
+    }
+    .vuln-item:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-2px);
+    }
+    .vuln-item .name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text-primary);
+    }
+    .sev {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.8px;
+    }
+    .sev-critical { background: rgba(244, 63, 94, 0.12); color: var(--red); border: 1px solid rgba(244, 63, 94, 0.2); }
+    .sev-high { background: rgba(245, 158, 11, 0.12); color: var(--orange); border: 1px solid rgba(245, 158, 11, 0.2); }
+    .sev-medium { background: rgba(167, 139, 250, 0.12); color: var(--purple); border: 1px solid rgba(167, 139, 250, 0.2); }
+    .sev-low { background: rgba(16, 185, 129, 0.12); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.2); }
+
+    /* ---- Footer ---- */
+    .landing-footer {
+      margin-top: auto;
+      padding: 24px 48px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 768px) {
+      .hero h2 { font-size: 2.4rem; }
+      .cta-grid { grid-template-columns: 1fr; }
+      .arch-grid { grid-template-columns: 1fr; }
+      .modes-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header class="landing-header">
+    <div class="logo">
+      <h1>DVGA<span class="sub">.Node</span></h1>
+    </div>
+    <nav>
+      <a href="/playground">Playground</a>
+      <a href="/docs">Documentation</a>
+      <a href="/graphql" target="_blank" class="active-link">GraphQL API</a>
+    </nav>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-badge">
+      <svg style="width:14px;height:14px;margin-right:6px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+      Educational Use Only — Do Not Deploy Publicly
+    </div>
+    <h2>Damn Vulnerable GraphQL Application</h2>
+    <p>A deliberately insecure GraphQL API built with Node.js, Apollo Server 4, and PostgreSQL. Learn to identify, exploit, and mitigate real-world API vulnerabilities through hands-on challenges.</p>
+  </section>
+
+  <!-- CTA Cards -->
+  <div class="cta-grid">
+    <a href="/playground" class="cta-card">
+      <div class="cta-icon-wrapper">
+        <svg style="width:24px;height:24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
+      </div>
+      <h3>Playground</h3>
+      <p>Explore vulnerability challenges hands-on. Execute GraphQL queries, compare vulnerable vs. secure code, and learn mitigation techniques.</p>
+    </a>
+    <a href="/docs" class="cta-card">
+      <div class="cta-icon-wrapper">
+        <svg style="width:24px;height:24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+      </div>
+      <h3>API Documentation</h3>
+      <p>Full GraphQL schema reference, all queries & mutations, type definitions, and detailed vulnerability exploitation guides.</p>
+    </a>
+  </div>
+
+  <!-- Test Accounts -->
+  <div class="section">
+    <h3 class="section-title">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+      Test Accounts
+    </h3>
+    <div class="table-container">
+      <table class="cred-table">
+        <thead>
+          <tr>
+            <th>Account</th>
+            <th>Email</th>
+            <th>Password</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Administrator</td>
+            <td><code>admin@lab.local</code></td>
+            <td><code>Admin123!</code></td>
+            <td><span class="role-badge role-admin">Admin</span></td>
+          </tr>
+          <tr>
+            <td>Alice (User A)</td>
+            <td><code>user_a@lab.local</code></td>
+            <td><code>User123!</code></td>
+            <td><span class="role-badge role-user">User</span></td>
+          </tr>
+          <tr>
+            <td>Bob (User B)</td>
+            <td><code>user_b@lab.local</code></td>
+            <td><code>User123!</code></td>
+            <td><span class="role-badge role-user">User</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Vulnerability Modules -->
+  <div class="section">
+    <h3 class="section-title">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+      Vulnerability Modules (13 Challenges)
+    </h3>
+    <div class="vuln-list">
+      <div class="vuln-item"><span class="name">Broken Object Level Auth (BOLA)</span><span class="sev sev-critical">Critical</span></div>
+      <div class="vuln-item"><span class="name">Insecure Direct Object Ref (IDOR)</span><span class="sev sev-high">High</span></div>
+      <div class="vuln-item"><span class="name">Weak JWT Validation</span><span class="sev sev-critical">Critical</span></div>
+      <div class="vuln-item"><span class="name">Broken Access Control</span><span class="sev sev-high">High</span></div>
+      <div class="vuln-item"><span class="name">SQL Injection (SQLi)</span><span class="sev sev-critical">Critical</span></div>
+      <div class="vuln-item"><span class="name">XSS (Stored)</span><span class="sev sev-high">High</span></div>
+      <div class="vuln-item"><span class="name">Server-Side Request Forgery</span><span class="sev sev-high">High</span></div>
+      <div class="vuln-item"><span class="name">Brute Force Throttling</span><span class="sev sev-medium">Medium</span></div>
+      <div class="vuln-item"><span class="name">Command Execution</span><span class="sev sev-critical">Critical</span></div>
+      <div class="vuln-item"><span class="name">Introspection Exposure</span><span class="sev sev-low">Low</span></div>
+      <div class="vuln-item"><span class="name">Excessive Data Exposure</span><span class="sev sev-medium">Medium</span></div>
+      <div class="vuln-item"><span class="name">Field-Level Auth Failure</span><span class="sev sev-medium">Medium</span></div>
+      <div class="vuln-item"><span class="name">Insecure File Upload</span><span class="sev sev-high">High</span></div>
+    </div>
+  </div>
+
+  <!-- Security Modes -->
+  <div class="section">
+    <h3 class="section-title">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+      Security Modes
+    </h3>
+    <div class="modes-grid">
+      <div class="mode-card mode-vuln">
+        <h4>Vulnerable Mode</h4>
+        <p>Resolvers use raw SQL string concatenation, no authentication checks, unrestricted file uploads, and full error stack traces. This is the default mode for exploitation practice.</p>
+      </div>
+      <div class="mode-card mode-secure">
+        <h4>Mitigated Mode</h4>
+        <p>Resolvers use parameterized queries, enforce JWT authentication and ownership checks, validate file types, and sanitize error messages. Toggle this mode to see the secure implementation.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Architecture -->
+  <div class="section">
+    <h3 class="section-title">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+      Architecture
+    </h3>
+    <div class="arch-grid">
+      <div class="arch-card">
+        <h4>GraphQL API</h4>
+        <p>Single <code>/graphql</code> endpoint powered by Apollo Server 4. All queries and mutations go through this unified interface.</p>
+      </div>
+      <div class="arch-card">
+        <h4>PostgreSQL</h4>
+        <p>Direct <code>pg</code> client with raw SQL queries. Vulnerable mode uses string concatenation; mitigated mode uses parameterized queries.</p>
+      </div>
+      <div class="arch-card">
+        <h4>JWT Auth</h4>
+        <p>JSON Web Token authentication via Express middleware. Vulnerable mode accepts <code>alg: none</code>; mitigated mode enforces HS256 signature verification.</p>
+      </div>
+    </div>
+  </div>
+
+    <!-- Resources Section -->
+    <section class="section">
+      <h3 class="section-title">Resources</h3>
+      <ul class="nav-list">
+        <li><a href="https://portswigger.net/web-security/graphql" target="_blank">GraphQL Security – PortSwigger Web Security Academy</a></li>
+        <li><a href="https://graphql.org/learn/" target="_blank">Learn GraphQL – Official Documentation</a></li>
+        <li><a href="https://github.com/dolevf/Damn-Vulnerable-GraphQL-Application" target="_blank">Damn Vulnerable GraphQL Application – GitHub</a></li>
+        <!-- Add more links as needed -->
+      </ul>
+    </section>
+    <!-- Footer -->
+    <footer class="landing-footer">
+      DVGA-Node Lab — Security Sandbox for API Pentesting  & Educational Training · Apollo Server 4 · PostgreSQL · Node.js
+    </footer>
+
+</body>
+
+</html>

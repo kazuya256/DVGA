@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: dvga-node-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dvga_node
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dvga_node"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dvga-network
+
+  app:
+    build: .
+    container_name: dvga-node-app
+    ports:
+      - "5013:5013"
+    environment:
+      - PORT=5013
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=dvga_node
+      - JWT_SECRET=super_secret_dev_key_do_not_use_in_prod
+      - SECURITY_MODE=VULNERABLE
+      - LEARNING_MODE=BEGINNER
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - dvga-network
+
+volumes:
+  pgdata:
+
+networks:
+  dvga-network:
+    name: dvga-network

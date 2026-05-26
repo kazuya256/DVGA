@@ -1,0 +1,27 @@
+# Node modules
+node_modules/
+# Logs
+npm-debug.log*
+logs/
+# Environment files
+.env
+# OS generated files
+.DS_Store
+Thumbs.db
+# IDE files
+.vscode/
+.idea/
+# Build output
+dist/
+build/
+# Temporary files
+tmp/
+# Misc
+*.log
+npm-debug.log
+yarn-error.log
+# Optional: coverage reports
+yarn.lock
+package-lock.json
+# ignore jest coverage
+coverage/

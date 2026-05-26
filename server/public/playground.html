@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DVGA-Node: Playground — Vulnerability Challenges</title>
+  <meta name="description" content="Interactive GraphQL vulnerability playground for hands-on security training with DVGA-Node.">
+  <!-- Google Fonts Outfit & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- Header Navigation -->
+  <header class="app-header">
+    <div class="logo-area" id="go-home">
+      <a href="/" style="text-decoration:none;color:inherit;">
+        <h1>DVGA<span class="accent-dot">.</span><span class="sub-logo">Node</span></h1>
+      </a>
+      <span class="tagline">Damn Vulnerable GraphQL Lab</span>
+    </div>
+
+    <div class="controls-area">
+      <!-- Page Navigation -->
+      <div class="control-group" style="margin-right:16px;">
+        <a href="/" class="nav-link-btn">Home</a>
+        <a href="/docs" class="nav-link-btn">Docs</a>
+      </div>
+
+      <!-- Session Switcher -->
+      <div class="control-group">
+        <label for="session-select">Session:</label>
+        <select id="session-select" class="select-dropdown">
+          <option value="guest">Guest (Anonymous)</option>
+          <option value="user_a">Alice (user_a@lab.local)</option>
+          <option value="user_b">Bob (user_b@lab.local)</option>
+          <option value="admin">Administrator (admin@lab.local)</option>
+        </select>
+      </div>
+
+      <!-- Learning Mode Toggle -->
+      <div class="control-group">
+        <label for="learning-mode">Learning Mode:</label>
+        <select id="learning-mode" class="select-dropdown">
+          <option value="BEGINNER">Beginner (Hints + Code)</option>
+          <option value="EXPERT">Expert (Black-Box)</option>
+        </select>
+      </div>
+
+      <!-- Security Level Toggle -->
+      <div class="control-group">
+        <label for="security-mode">Security Mode:</label>
+        <select id="security-mode" class="select-dropdown security-switch">
+          <option value="VULNERABLE">Vulnerable (Insecure)</option>
+          <option value="MITIGATED">Mitigated (Secure)</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="app-sidebar">
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <h3>Vulnerability Modules</h3>
+          <ul id="vulnerabilities-list" class="nav-list">
+            <!-- Filled dynamically by app.js -->
+          </ul>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="/docs" id="nav-docs-link">Documentation Docs</a>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="app-content">
+
+      <!-- DASHBOARD VIEW -->
+      <section id="dashboard-view" class="content-view active">
+        <div class="hero-section">
+          <h2>Damn Vulnerable GraphQL Lab (Node.js)</h2>
+          <p>Welcome to the Node.js reinterpretation of Damn Vulnerable GraphQL Application (DVGA). This environment is
+            designed to teach GraphQL API security through hands-on challenges, demonstrating side-by-side secure coding
+            mitigations in real time.</p>
+          <div class="quick-start-tips">
+            <strong>Quick Start:</strong> Choose a module from the grid below or the sidebar. Use the <strong>Security
+              Mode</strong> toggle in the header to switch the backend between vulnerable and secure resolver paths to
+            inspect how outputs vary.
+          </div>
+        </div>
+
+        <h3 class="section-title">Vulnerability Map</h3>
+        <div class="vulnerability-grid" id="vulnerability-cards-container">
+          <!-- Populated dynamically by app.js -->
+        </div>
+
+        <h3 class="section-title">Architecture Overview</h3>
+        <div class="architecture-panel">
+          <div class="arch-card">
+            <h4>GraphQL Flow</h4>
+            <p>Clients send queries to the unified <code>/graphql</code> endpoint. Standard middleware handles
+              authentication using JSON Web Tokens (JWT). Resolvers query PostgreSQL database using raw <code>pg</code>
+              client queries.</p>
+          </div>
+          <div class="arch-card">
+            <h4>Dual Resolution Paths</h4>
+            <p>Every resolver splits its execution based on the global <code>SECURITY_MODE</code>. This structure allows
+              direct behavioral comparisons between insecure SQL strings and robust parameterized validation layers.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- MODULE DETAILS VIEW -->
+      <section id="module-view" class="content-view">
+        <div class="module-header-area">
+          <button class="back-btn" id="back-to-dashboard">← Back to Map</button>
+          <h2 id="module-title">Module Title</h2>
+          <div class="module-meta">
+            <span id="module-severity" class="badge">Severity</span>
+            <span id="module-difficulty" class="badge">Difficulty</span>
+            <span id="module-category" class="badge">Category</span>
+          </div>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="tabs-nav">
+          <button class="tab-btn active" data-tab="tab-overview">Challenge Overview</button>
+          <button class="tab-btn" data-tab="tab-playground">GraphQL Playground</button>
+          <button class="tab-btn" id="tab-code-btn" data-tab="tab-code">Insecure vs Secure Code</button>
+          <button class="tab-btn" data-tab="tab-mitigation">Mitigation Notes</button>
+        </div>
+
+        <!-- Tabs Content -->
+        <div class="tabs-content">
+          <!-- Overview Tab -->
+          <div id="tab-overview" class="tab-panel active">
+            <div class="panel-card">
+              <h3>Vulnerability Description</h3>
+              <p id="module-description">Description text...</p>
+            </div>
+
+            <div class="panel-card">
+              <h3>Challenge Objective</h3>
+              <p id="module-objective">Objective text...</p>
+            </div>
+
+            <div class="panel-card beginner-only" id="module-hints-container">
+              <h3>Guided Clues & Exploitation Steps</h3>
+              <div id="module-hints">Hints content...</div>
+            </div>
+          </div>
+
+          <!-- Playground Tab -->
+          <div id="tab-playground" class="tab-panel">
+            <div class="playground-layout">
+              <div class="playground-editor">
+                <div class="editor-header">
+                  <span>GraphQL Query Editor</span>
+                  <div class="editor-actions">
+                    <button id="btn-prefill-query" class="small-btn">Reset Query</button>
+                  </div>
+                </div>
+
+                <!-- JWT Header box -->
+                <div class="jwt-input-area">
+                  <label for="jwt-token">Authorization JWT Token Header (Bearer):</label>
+                  <textarea id="jwt-token"
+                    placeholder="Optional JWT token (auto-populated when logging in via dropdown)..."></textarea>
+                </div>
+
+                <textarea id="graphql-query-input" class="code-editor" spellcheck="false"></textarea>
+
+                <!-- Variables panel (Optional base64 upload fields inside custom form) -->
+                <div id="playground-upload-helper" class="playground-subform hidden">
+                  <h4>Upload File Input Helper (base64)</h4>
+                  <input type="text" id="upload-filename" placeholder="filename.jpg" class="input-field">
+                  <textarea id="upload-content" placeholder="Base64 content string or plain text..."
+                    class="input-field text-area"></textarea>
+                  <button id="btn-inject-upload" class="small-btn">Inject upload file payload</button>
+                </div>
+
+                <button id="btn-run-query" class="run-btn">Execute Operation ▶</button>
+              </div>
+
+              <div class="playground-response">
+                <div class="editor-header">
+                  <span>Response Viewer</span>
+                  <span id="response-status" class="response-badge">Pending</span>
+                </div>
+                <pre id="graphql-response-output" class="response-code">Run a query to view output...</pre>
+        <div id="xss-output" class="xss-output" style="margin-top:12px; border:1px solid #e0e0e0; padding:8px; background:#f9f9f9;"><!-- XSS payload will render here --></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Code Comparison Tab -->
+          <div id="tab-code" class="tab-panel">
+            <div class="code-comparison-grid">
+              <div class="code-box vulnerable">
+                <h4> Vulnerable Resolver Implementation</h4>
+                <pre
+                  class="code-block-viewer"><code id="code-vulnerable">Loading vulnerable resolver source...</code></pre>
+              </div>
+              <div class="code-box secure">
+                <h4>Mitigated (Secure) Resolver Implementation</h4>
+                <pre class="code-block-viewer"><code id="code-secure">Loading secure resolver source...</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mitigation Tab -->
+          <div id="tab-mitigation" class="tab-panel">
+            <div class="panel-card">
+              <h3>Remediation Guidelines</h3>
+              <p id="module-mitigation">Mitigation text...</p>
+            </div>
+            <div class="panel-card">
+              <h3>Secure Coding Lessons</h3>
+              <p id="module-learning">Learning notes...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+
+    </main>
+  </div>
+
+  <footer class="app-footer">
+    <div class="footer-content">
+      <span>DVGA-Node Lab - Security Sandbox for API Pentesting & Educational Training</span>
+      <span>PostgreSQL Direct Client (Raw SQL) | Apollo Server 4</span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
