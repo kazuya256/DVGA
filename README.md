@@ -153,7 +153,7 @@ This application contains active, high-risk security vulnerabilities. Always hos
 
 Here’s a screenshot of the web page demonstrating the deployment:
 
-![Web Security Demo](https://github.com/kazuya256/Vulearn/DVGA/edit/main/images/Screenshot.png)
+![DVGA](https://github.com/kazuya256/DVGA/blob/main/images/Screenshot.png)
 
 ## Resources
 
