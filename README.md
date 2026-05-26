@@ -149,6 +149,12 @@ Use the preconfigured credentials for testing authorization boundaries. Switchin
 
 This application contains active, high-risk security vulnerabilities. Always host inside firewalled networks and stop processes after exercises have completed.
 
+## Screenshot Example
+
+Here’s a screenshot of the web page demonstrating the deployment:
+
+![Web Security Demo](https://github.com/kazuya256/Vulearn/DVGA/edit/main/images/Screenshot.png)
+
 ## Resources
 
 - [GraphQL Security – PortSwigger Web Security Academy](https://portswigger.net/web-security/graphql)
