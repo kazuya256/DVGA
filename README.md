@@ -29,16 +29,20 @@ Unlike automated templates, this lab offers **runtime security toggles** (Vulner
 | 04 | **Broken Access Control** | High | Authorization | Easy |
 | 05 | **SQL Injection (SQLi)** | Critical | Injection | Medium |
 | 06 | **Stored XSS** | High | Cross-Site Scripting | Easy |
-| 07 | **Reflected XSS** | Medium | Cross-Site Scripting | Easy |
-| 08 | **SSRF (Request Forgery)** | High | Server-Side Request | Medium |
-| 09 | **Brute Force Login** | Medium | Authentication | Easy |
-| 10 | **Command Execution Risks** | Critical | Injection | Hard |
-| 11 | **GraphQL Introspection Exposure** | Low | Info Disclosure | Easy |
-| 12 | **Excessive Data Exposure** | Medium | Info Disclosure | Easy |
-| 13 | **Field-Level Auth Failure** | Medium | Authorization | Easy |
-| 14 | **Sensitive Error Leakage** | Low | Info Disclosure | Easy |
-| 15 | **Insecure File Upload** | High | File Handling | Medium |
-| 16 | **Weak Password Policy** | Medium | Authentication | Easy |
+| 07 | **SSRF (Request Forgery)** | High | Server-Side Request | Medium |
+| 08 | **Brute Force Login** | Medium | Authentication | Easy |
+| 09 | **Command Execution Risks** | Critical | Injection | Hard |
+| 10 | **GraphQL Introspection Exposure** | Low | Info Disclosure | Easy |
+| 11 | **Excessive Data Exposure** | Medium | Info Disclosure | Easy |
+| 12 | **Field-Level Auth Failure** | Medium | Authorization | Easy |
+| 13 | **Sensitive Error Leakage** | Low | Info Disclosure | Easy |
+| 14 | **Insecure File Upload** | High | File Handling | Medium |
+| 15 | **Weak Password Policy** | Medium | Authentication | Easy |
+| 16 | **Broken Authentication** | Critical | Authentication | Medium |
+| 17 | **Broken Object Property Level Authorization** | Critical | Authorization | Medium |
+| 18 | **Broken Function Level Authorization** | Critical | Authorization | Easy |
+| 19 | **Unrestricted Access to Sensitive Business Flows** | Critical | Business Logic | Medium |
+
 
 ---
 
