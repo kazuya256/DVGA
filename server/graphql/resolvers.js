@@ -263,6 +263,53 @@ const resolvers = {
       return `Introspection is active. Current Security Mode: ${config.getSecurityMode()}`;
     },
 
+    // -------------------------------------------------------------------------
+    // API5: BROKEN FUNCTION LEVEL AUTHORIZATION - Transactions Query
+    // -------------------------------------------------------------------------
+    transactions: async (_, __, context) => {
+      const mode = config.getSecurityMode();
+      console.log(`[RESOLVER] Transactions list request (${mode} mode)`);
+
+      if (mode === 'VULNERABLE') {
+        // INSECURE: Any authenticated user can view ALL transactions including
+        // admin salary payments, internal transfers, and financial records.
+        // No role check whatsoever - a regular user sees everything.
+        if (!context.user) throw new Error('Authentication required.');
+        const res = await db.query('SELECT * FROM transactions ORDER BY created_at DESC');
+        return res.rows;
+      } else {
+        // SECURE: Only admin users can access the transactions ledger
+        if (!context.user || context.user.role !== 'admin') {
+          throw new Error('Access Denied: Only administrators can view financial transactions.');
+        }
+        const res = await db.query('SELECT * FROM transactions ORDER BY created_at DESC');
+        return res.rows;
+      }
+    },
+
+    // -------------------------------------------------------------------------
+    // API6: UNRESTRICTED ACCESS TO SENSITIVE BUSINESS FLOWS - Coupons Query
+    // -------------------------------------------------------------------------
+    coupons: async (_, __, context) => {
+      const mode = config.getSecurityMode();
+      console.log(`[RESOLVER] Coupons list request (${mode} mode)`);
+
+      if (mode === 'VULNERABLE') {
+        // INSECURE: Returns all coupons including codes, discount values,
+        // and usage counts. No authentication required. Attackers can
+        // enumerate all coupon codes and abuse high-value ones.
+        const res = await db.query('SELECT * FROM coupons');
+        return res.rows;
+      } else {
+        // SECURE: Only admin can list all coupons
+        if (!context.user || context.user.role !== 'admin') {
+          throw new Error('Access Denied: Only administrators can view the coupon registry.');
+        }
+        const res = await db.query('SELECT * FROM coupons');
+        return res.rows;
+      }
+    },
+
     securityMode: () => config.getSecurityMode(),
     learningMode: () => config.getLearningMode()
   },
@@ -463,6 +510,269 @@ const resolvers = {
           [cleanEmail, cleanMessage]
         );
         return res.rows[0];
+      }
+    },
+
+    // -------------------------------------------------------------------------
+    // API2: BROKEN AUTHENTICATION - Login with Session Token
+    // -------------------------------------------------------------------------
+    loginWithToken: async (_, { email, sessionToken }) => {
+      const mode = config.getSecurityMode();
+      console.log(`[RESOLVER] Token-based login for: "${email}" (${mode} mode)`);
+
+      if (mode === 'VULNERABLE') {
+        // INSECURE: Accepts ANY session token value without verification.
+        // The server trusts the client-provided token and never validates it
+        // against a stored session or checks token integrity.
+        // An attacker can provide any string as sessionToken to bypass auth.
+        const res = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        const user = res.rows[0];
+
+        if (!user) {
+          throw new Error('User not found.');
+        }
+
+        // VULNERABILITY: Token is never validated! Any non-empty string works.
+        if (!sessionToken || sessionToken.length === 0) {
+          throw new Error('Session token is required.');
+        }
+
+        console.log(`[AUTH] VULNERABLE: Token-based login accepted without verification for ${email}`);
+
+        const token = jwt.sign(
+          { id: user.id, email: user.email, role: user.role, is_admin: user.is_admin },
+          config.getJwtSecret()
+        );
+        return { token, user };
+      } else {
+        // SECURE: Token-based login is disabled entirely.
+        // Proper implementations would validate against a server-side session store.
+        throw new Error('Token-based authentication is disabled. Use password-based login.');
+      }
+    },
+
+    // -------------------------------------------------------------------------
+    // API3: BROKEN OBJECT PROPERTY LEVEL AUTHORIZATION - Mass Assignment
+    // -------------------------------------------------------------------------
+    updateUserProfile: async (_, { userId, email, role, is_admin }, context) => {
+      const mode = config.getSecurityMode();
+      console.log(`[RESOLVER] Update user profile for ID: ${userId} (${mode} mode)`);
+
+      if (!context.user) {
+        throw new Error('Authentication required.');
+      }
+
+      if (mode === 'VULNERABLE') {
+        // INSECURE: Mass assignment vulnerability!
+        // The resolver blindly applies ALL provided fields including
+        // role and is_admin, which are privileged properties.
+        // A regular user can escalate their own privileges by setting
+        // role='admin' and is_admin=true on their own user record.
+        const updates = [];
+        const values = [];
+        let paramIndex = 1;
+
+        if (email !== undefined) {
+          updates.push(`email = $${paramIndex++}`);
+          values.push(email);
+        }
+        if (role !== undefined) {
+          updates.push(`role = $${paramIndex++}`);
+          values.push(role);
+        }
+        if (is_admin !== undefined) {
+          updates.push(`is_admin = $${paramIndex++}`);
+          values.push(is_admin);
+        }
+
+        if (updates.length === 0) {
+          throw new Error('No fields provided to update.');
+        }
+
+        values.push(userId);
+        const queryStr = `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
+        console.log(`[AUTH] VULNERABLE: Mass assignment update applied: ${queryStr}`);
+        const res = await db.query(queryStr, values);
+        const user = res.rows[0];
+        if (!user) throw new Error('User not found.');
+        return { ...user, message: 'Profile updated successfully.' };
+      } else {
+        // SECURE: Only allow non-privileged field updates (email).
+        // role and is_admin changes require admin privileges.
+        if (parseInt(userId, 10) !== context.user.id && context.user.role !== 'admin') {
+          throw new Error('Access Denied: You can only update your own profile.');
+        }
+
+        // Regular users can only update email
+        if ((role !== undefined || is_admin !== undefined) && context.user.role !== 'admin') {
+          throw new Error('Access Denied: Only administrators can modify role or admin status.');
+        }
+
+        const updates = [];
+        const values = [];
+        let paramIndex = 1;
+
+        if (email !== undefined) {
+          updates.push(`email = $${paramIndex++}`);
+          values.push(email);
+        }
+        // Only admin can set these
+        if (role !== undefined && context.user.role === 'admin') {
+          updates.push(`role = $${paramIndex++}`);
+          values.push(role);
+        }
+        if (is_admin !== undefined && context.user.role === 'admin') {
+          updates.push(`is_admin = $${paramIndex++}`);
+          values.push(is_admin);
+        }
+
+        if (updates.length === 0) {
+          throw new Error('No valid fields provided to update.');
+        }
+
+        values.push(userId);
+        const res = await db.query(
+          `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+          values
+        );
+        const user = res.rows[0];
+        if (!user) throw new Error('User not found.');
+        return { ...user, message: 'Profile updated successfully (secure).' };
+      }
+    },
+
+    // -------------------------------------------------------------------------
+    // API5: BROKEN FUNCTION LEVEL AUTHORIZATION - Fund Transfer
+    // -------------------------------------------------------------------------
+    transferFunds: async (_, { fromUserId, toUserId, amount, description }, context) => {
+      const mode = config.getSecurityMode();
+      console.log(`[RESOLVER] Fund transfer request: $${amount} from user ${fromUserId} to ${toUserId} (${mode} mode)`);
+
+      if (!context.user) {
+        throw new Error('Authentication required.');
+      }
+
+      if (mode === 'VULNERABLE') {
+        // INSECURE: Any authenticated user can initiate fund transfers
+        // between ANY users. No admin role check. No ownership validation.
+        // A regular user (Alice) can transfer funds from Admin's account
+        // to their own account or to anyone else.
+        if (amount <= 0) throw new Error('Amount must be positive.');
+
+        const res = await db.query(
+          'INSERT INTO transactions (from_user_id, to_user_id, amount, description) VALUES ($1, $2, $3, $4) RETURNING *',
+          [fromUserId, toUserId, amount, description || 'Fund transfer']
+        );
+        console.log(`[AUTH] VULNERABLE: Unrestricted fund transfer executed by user ${context.user.id}`);
+        return res.rows[0];
+      } else {
+        // SECURE: Only admin can initiate fund transfers
+        if (context.user.role !== 'admin') {
+          throw new Error('Access Denied: Only administrators can perform fund transfers.');
+        }
+        if (amount <= 0) throw new Error('Amount must be positive.');
+
+        const res = await db.query(
+          'INSERT INTO transactions (from_user_id, to_user_id, amount, description) VALUES ($1, $2, $3, $4) RETURNING *',
+          [fromUserId, toUserId, amount, description || 'Fund transfer']
+        );
+        return res.rows[0];
+      }
+    },
+
+    // -------------------------------------------------------------------------
+    // API5: BROKEN FUNCTION LEVEL AUTHORIZATION - Delete User
+    // -------------------------------------------------------------------------
+    deleteUser: async (_, { userId }, context) => {
+      const mode = config.getSecurityMode();
+      console.log(`[RESOLVER] Delete user request for ID: ${userId} (${mode} mode)`);
+
+      if (!context.user) {
+        throw new Error('Authentication required.');
+      }
+
+      if (mode === 'VULNERABLE') {
+        // INSECURE: Any authenticated user can delete ANY user account
+        // including admin accounts. No role verification at all.
+        const res = await db.query('DELETE FROM users WHERE id = $1 RETURNING id', [userId]);
+        if (res.rowCount === 0) throw new Error('User not found.');
+        console.log(`[AUTH] VULNERABLE: User ${userId} deleted by non-admin user ${context.user.id}`);
+        return true;
+      } else {
+        // SECURE: Only admin can delete users, and cannot delete self
+        if (context.user.role !== 'admin') {
+          throw new Error('Access Denied: Only administrators can delete user accounts.');
+        }
+        if (parseInt(userId, 10) === context.user.id) {
+          throw new Error('Cannot delete your own admin account.');
+        }
+        const res = await db.query('DELETE FROM users WHERE id = $1 RETURNING id', [userId]);
+        if (res.rowCount === 0) throw new Error('User not found.');
+        return true;
+      }
+    },
+
+    // -------------------------------------------------------------------------
+    // API6: UNRESTRICTED ACCESS TO SENSITIVE BUSINESS FLOWS - Coupon Abuse
+    // -------------------------------------------------------------------------
+    applyCoupon: async (_, { code }, context) => {
+      const mode = config.getSecurityMode();
+      console.log(`[RESOLVER] Coupon application request: "${code}" (${mode} mode)`);
+
+      if (mode === 'VULNERABLE') {
+        // INSECURE: No authentication required. No rate limiting.
+        // No enforcement of max_uses. Attackers can:
+        // 1. Apply coupons without logging in
+        // 2. Apply the same coupon unlimited times (ignoring max_uses)
+        // 3. Apply high-value coupons (VIP50, STAFF75) meant for internal use
+        const res = await db.query('SELECT * FROM coupons WHERE code = $1', [code]);
+        const coupon = res.rows[0];
+
+        if (!coupon) throw new Error('Invalid coupon code.');
+        if (!coupon.is_active) throw new Error('Coupon is no longer active.');
+
+        // VULNERABILITY: max_uses is checked but current_uses is incremented
+        // without any concurrency controls, and the check itself is bypassable
+        // because we don't actually enforce it in vulnerable mode
+        await db.query(
+          'UPDATE coupons SET current_uses = current_uses + 1 WHERE id = $1',
+          [coupon.id]
+        );
+
+        console.log(`[BUSINESS] VULNERABLE: Coupon ${code} applied (uses: ${coupon.current_uses + 1}, max: ${coupon.max_uses})`);
+
+        // Return updated coupon
+        const updated = await db.query('SELECT * FROM coupons WHERE id = $1', [coupon.id]);
+        return updated.rows[0];
+      } else {
+        // SECURE: Requires authentication, enforces max_uses, rate limits
+        if (!context.user) {
+          throw new Error('Authentication required to apply coupons.');
+        }
+
+        const res = await db.query('SELECT * FROM coupons WHERE code = $1', [code]);
+        const coupon = res.rows[0];
+
+        if (!coupon) throw new Error('Invalid coupon code.');
+        if (!coupon.is_active) throw new Error('Coupon is no longer active.');
+
+        // Enforce max usage limit
+        if (coupon.current_uses >= coupon.max_uses) {
+          throw new Error('Coupon has reached its maximum number of uses.');
+        }
+
+        // Check if internal-only coupon (STAFF coupons require admin)
+        if (coupon.code.startsWith('STAFF') && context.user.role !== 'admin') {
+          throw new Error('Access Denied: This coupon is restricted to staff members.');
+        }
+
+        await db.query(
+          'UPDATE coupons SET current_uses = current_uses + 1 WHERE id = $1',
+          [coupon.id]
+        );
+
+        const updated = await db.query('SELECT * FROM coupons WHERE id = $1', [coupon.id]);
+        return updated.rows[0];
       }
     },
 

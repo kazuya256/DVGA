@@ -524,6 +524,187 @@ query {
     secureCode: `// SECURE: Enforce password complexity check (minimum 12 chars, upper/lower case, special character)\nif (password.length < 12) {\n  throw new Error("Password must be at least 12 characters.");\n}`,
     mitigation: 'Enforce strict passwords checks during registration. Integrate standard password validator libraries.',
     learning: 'Training accounts are simple entries for scanners. Secure standard defaults.'
+  },
+  {
+    id: 'api2-broken-auth',
+    title: 'Broken Authentication',
+    severity: 'critical',
+    difficulty: 'medium',
+    category: 'Authentication',
+    status: 'Pending',
+    description: 'Broken Authentication occurs when authentication mechanisms are implemented incorrectly, allowing attackers to compromise authentication tokens or exploit implementation flaws to assume other users\' identities. In this case, the server provides a token-based login endpoint that accepts ANY session token without server-side verification, allowing complete authentication bypass.',
+    objective: 'Use the loginWithToken mutation to authenticate as the admin user WITHOUT knowing their password. Simply provide any arbitrary string as the sessionToken parameter.',
+    hints: `
+      <p><strong>Exploitation Steps:</strong></p>
+      <ol>
+        <li>The server exposes a <code>loginWithToken</code> mutation that is meant for "remember me" or session refresh functionality.</li>
+        <li>In <strong>Vulnerable</strong> mode, the server never validates the session token against any stored value — it simply checks that the token string is non-empty.</li>
+        <li>Execute the following mutation to log in as admin without any password:</li>
+      </ol>
+      <pre style="background:#111b27; color:#38bdf8; padding:8px; border-radius:4px; margin:8px 0; font-family:monospace;">
+mutation {
+  loginWithToken(
+    email: "admin@lab.local",
+    sessionToken: "anything-works-here"
+  ) {
+    token
+    user {
+      id
+      email
+      role
+      is_admin
+    }
+  }
+}
+      </pre>
+      <p>Observe that in <strong>Vulnerable</strong> mode, you receive a valid JWT for the admin account. In <strong>Mitigated</strong> mode, token-based login is completely disabled and returns an error.</p>
+      <p><strong>Real-World Impact:</strong> An attacker can impersonate ANY user by simply knowing their email address. No password, no token cracking — just supply any non-empty string.</p>
+    `,
+    sampleQuery: `mutation {\n  loginWithToken(\n    email: "admin@lab.local",\n    sessionToken: "anything-works-here"\n  ) {\n    token\n    user {\n      id\n      email\n      role\n      is_admin\n    }\n  }\n}`,
+    vulnerableCode: `loginWithToken: async (_, { email, sessionToken }) => {\n  // INSECURE: Accepts ANY token value without server-side verification\n  const res = await db.query('SELECT * FROM users WHERE email = $1', [email]);\n  const user = res.rows[0];\n  if (!user) throw new Error('User not found.');\n\n  // VULNERABILITY: Token is never validated! Any non-empty string works.\n  if (!sessionToken || sessionToken.length === 0) {\n    throw new Error('Session token is required.');\n  }\n\n  // Issues a real JWT without verifying credentials\n  const token = jwt.sign(\n    { id: user.id, email: user.email, role: user.role },\n    config.getJwtSecret()\n  );\n  return { token, user };\n}`,
+    secureCode: `loginWithToken: async (_, { email, sessionToken }) => {\n  // SECURE: Token-based login is disabled entirely.\n  // Proper implementations would:\n  // 1. Validate token against a server-side session store (Redis/DB)\n  // 2. Check token expiration and rotation\n  // 3. Bind tokens to device fingerprints\n  throw new Error('Token-based authentication is disabled. Use password-based login.');\n}`,
+    mitigation: 'Never trust client-supplied session tokens without server-side validation. Implement proper session management with tokens stored in a server-side session store (Redis, database). Validate token integrity, expiration, and binding to the original authenticated session.',
+    learning: 'Authentication bypass is one of the most critical API vulnerabilities. Every authentication path must verify credentials against a trusted server-side source. "Remember me" and token refresh flows are common targets for attackers.'
+  },
+  {
+    id: 'api3-property-auth',
+    title: 'Broken Object Property Level Authorization',
+    severity: 'critical',
+    difficulty: 'medium',
+    category: 'Authorization',
+    status: 'Pending',
+    description: 'Broken Object Property Level Authorization occurs when an API allows users to modify object properties that should be restricted. This is commonly exploited through mass assignment attacks, where an attacker includes additional properties in a mutation that the API blindly applies without checking authorization for each field. In this lab, a regular user can escalate their privileges to admin by updating their own role and is_admin fields.',
+    objective: 'Log in as Alice (regular user) and use the updateUserProfile mutation to escalate your privileges by setting role to "admin" and is_admin to true on your own user record.',
+    hints: `
+      <p><strong>Exploitation Steps:</strong></p>
+      <ol>
+        <li>Select <strong>Alice</strong> from the Session dropdown to authenticate as a regular user.</li>
+        <li>Alice's user ID is <strong>2</strong>. The <code>updateUserProfile</code> mutation accepts <code>email</code>, <code>role</code>, and <code>is_admin</code> fields.</li>
+        <li>In <strong>Vulnerable</strong> mode, the server applies ALL submitted fields without checking if the user is authorized to modify privileged properties like <code>role</code> and <code>is_admin</code>.</li>
+        <li>Execute the following mutation to escalate Alice to admin:</li>
+      </ol>
+      <pre style="background:#111b27; color:#38bdf8; padding:8px; border-radius:4px; margin:8px 0; font-family:monospace;">
+mutation {
+  updateUserProfile(
+    userId: "2",
+    role: "admin",
+    is_admin: true
+  ) {
+    id
+    email
+    role
+    is_admin
+    message
+  }
+}
+      </pre>
+      <p>In <strong>Vulnerable</strong> mode, Alice's role is changed to admin and is_admin is set to true. She now has full administrative access. In <strong>Mitigated</strong> mode, the server rejects role/is_admin changes from non-admin users.</p>
+      <p><strong>Verify the escalation:</strong> After the mutation succeeds, query the users list — Alice should now appear as admin.</p>
+    `,
+    sampleQuery: `mutation {\n  updateUserProfile(\n    userId: "2",\n    role: "admin",\n    is_admin: true\n  ) {\n    id\n    email\n    role\n    is_admin\n    message\n  }\n}`,
+    vulnerableCode: `updateUserProfile: async (_, { userId, email, role, is_admin }, context) => {\n  // INSECURE: Mass assignment - blindly applies ALL fields\n  // including privileged properties like role and is_admin\n  const updates = [];\n  const values = [];\n  let i = 1;\n\n  if (email) { updates.push(\`email = $\${i++}\`); values.push(email); }\n  if (role) { updates.push(\`role = $\${i++}\`); values.push(role); }\n  if (is_admin !== undefined) { updates.push(\`is_admin = $\${i++}\`); values.push(is_admin); }\n\n  values.push(userId);\n  const query = \`UPDATE users SET \${updates.join(', ')} WHERE id = $\${i} RETURNING *\`;\n  const res = await db.query(query, values);\n  return res.rows[0];\n}`,
+    secureCode: `updateUserProfile: async (_, { userId, email, role, is_admin }, context) => {\n  // SECURE: Only allow non-privileged field updates\n  if (parseInt(userId) !== context.user.id && context.user.role !== 'admin') {\n    throw new Error('Access Denied: You can only update your own profile.');\n  }\n\n  // Regular users can ONLY update email\n  if ((role !== undefined || is_admin !== undefined) && context.user.role !== 'admin') {\n    throw new Error('Access Denied: Only administrators can modify role or admin status.');\n  }\n  // ... proceed with validated fields only\n}`,
+    mitigation: 'Implement property-level authorization checks. Define an explicit allowlist of fields each role can modify. Never blindly apply all input fields to database updates. Use separate mutation endpoints for privileged operations (e.g., <code>promoteUser</code> for admin-only role changes).',
+    learning: 'Mass assignment is a subtle but critical vulnerability. APIs must distinguish between user-modifiable properties (email, bio) and system-controlled properties (role, is_admin, permissions). Always validate authorization at the individual property level, not just the object level.'
+  },
+  {
+    id: 'api5-function-auth',
+    title: 'Broken Function Level Authorization',
+    severity: 'critical',
+    difficulty: 'easy',
+    category: 'Authorization',
+    status: 'Pending',
+    description: 'Broken Function Level Authorization occurs when administrative or privileged API functions are exposed to regular users without proper role checks. In this lab, the transferFunds and deleteUser mutations are admin-only operations that regular users can freely execute. Additionally, the transactions query exposes all financial records to any authenticated user regardless of their role.',
+    objective: 'Log in as Alice (regular user) and execute admin-only operations: transfer funds between accounts, view all financial transactions, or delete another user account.',
+    hints: `
+      <p><strong>Exploitation Steps:</strong></p>
+      <ol>
+        <li>Select <strong>Alice</strong> from the Session dropdown.</li>
+        <li>In <strong>Vulnerable</strong> mode, Alice can access admin-level endpoints that should be restricted.</li>
+        <li><strong>Attack 1 — View Financial Records:</strong> Query all transactions (admin-only data):</li>
+      </ol>
+      <pre style="background:#111b27; color:#38bdf8; padding:8px; border-radius:4px; margin:8px 0; font-family:monospace;">
+query {
+  transactions {
+    id
+    from_user_id
+    to_user_id
+    amount
+    description
+    status
+  }
+}
+      </pre>
+      <p><strong>Attack 2 — Transfer Funds:</strong> As Alice, transfer $10000 from Admin's account (ID 1) to Alice's account (ID 2):</p>
+      <pre style="background:#111b27; color:#38bdf8; padding:8px; border-radius:4px; margin:8px 0; font-family:monospace;">
+mutation {
+  transferFunds(
+    fromUserId: "1",
+    toUserId: "2",
+    amount: 10000,
+    description: "Unauthorized transfer"
+  ) {
+    id
+    amount
+    description
+    status
+  }
+}
+      </pre>
+      <p>In <strong>Vulnerable</strong> mode, all operations succeed. In <strong>Mitigated</strong> mode, the server returns "Access Denied: Only administrators can perform fund transfers."</p>
+    `,
+    sampleQuery: `mutation {\n  transferFunds(\n    fromUserId: "1",\n    toUserId: "2",\n    amount: 10000,\n    description: "Unauthorized transfer from admin"\n  ) {\n    id\n    amount\n    description\n    status\n  }\n}`,
+    vulnerableCode: `transferFunds: async (_, { fromUserId, toUserId, amount, description }, context) => {\n  // INSECURE: Any authenticated user can initiate fund transfers\n  // between ANY users. No admin role check. No ownership validation.\n  if (!context.user) throw new Error('Authentication required.');\n  if (amount <= 0) throw new Error('Amount must be positive.');\n\n  const res = await db.query(\n    'INSERT INTO transactions (from_user_id, to_user_id, amount, description) VALUES ($1, $2, $3, $4) RETURNING *',\n    [fromUserId, toUserId, amount, description || 'Fund transfer']\n  );\n  return res.rows[0];\n}`,
+    secureCode: `transferFunds: async (_, { fromUserId, toUserId, amount, description }, context) => {\n  // SECURE: Only admin users can initiate fund transfers\n  if (!context.user || context.user.role !== 'admin') {\n    throw new Error('Access Denied: Only administrators can perform fund transfers.');\n  }\n  if (amount <= 0) throw new Error('Amount must be positive.');\n\n  const res = await db.query(\n    'INSERT INTO transactions (...) VALUES ($1, $2, $3, $4) RETURNING *',\n    [fromUserId, toUserId, amount, description]\n  );\n  return res.rows[0];\n}`,
+    mitigation: 'Implement strict role-based access control (RBAC) on every resolver. Administrative functions must explicitly verify <code>context.user.role === \'admin\'</code> before execution. Use middleware or resolver wrappers to enforce authorization checks uniformly across all privileged operations.',
+    learning: 'API functions that perform privileged operations (fund transfers, user management, system configuration) must have explicit authorization gates. Never rely on client-side UI hiding to prevent access — attackers directly call the GraphQL endpoint.'
+  },
+  {
+    id: 'api6-business-flows',
+    title: 'Unrestricted Access to Sensitive Business Flows',
+    severity: 'high',
+    difficulty: 'medium',
+    category: 'Business Logic',
+    status: 'Pending',
+    description: 'Unrestricted Access to Sensitive Business Flows occurs when APIs fail to enforce business rules, rate limits, or usage constraints on critical operations. In this lab, the coupon system allows unauthenticated users to enumerate all coupon codes (including internal staff discounts), apply high-value coupons without authorization, and redeem the same coupon unlimited times — ignoring the max_uses limit entirely.',
+    objective: 'Exploit the coupon system: enumerate all available coupons (including internal STAFF75 discount codes), then apply the same high-value coupon multiple times without authentication to abuse the discount system.',
+    hints: `
+      <p><strong>Exploitation Steps:</strong></p>
+      <ol>
+        <li>Switch to <strong>Guest (Anonymous)</strong> session — no authentication needed in vulnerable mode.</li>
+        <li><strong>Step 1 — Enumerate coupons:</strong> List all available coupon codes to discover internal staff discounts:</li>
+      </ol>
+      <pre style="background:#111b27; color:#38bdf8; padding:8px; border-radius:4px; margin:8px 0; font-family:monospace;">
+query {
+  coupons {
+    id
+    code
+    discount_percent
+    max_uses
+    current_uses
+    is_active
+  }
+}
+      </pre>
+      <p><strong>Step 2 — Abuse a high-value coupon:</strong> Apply the internal <code>STAFF75</code> coupon (75% off, meant for staff only) — and apply it multiple times to exceed the max_uses limit:</p>
+      <pre style="background:#111b27; color:#38bdf8; padding:8px; border-radius:4px; margin:8px 0; font-family:monospace;">
+mutation {
+  applyCoupon(code: "STAFF75") {
+    id
+    code
+    discount_percent
+    current_uses
+    max_uses
+  }
+}
+      </pre>
+      <p>Run the mutation 5+ times. In <strong>Vulnerable</strong> mode, the coupon is applied every time — current_uses exceeds max_uses with no enforcement. No authentication is required. In <strong>Mitigated</strong> mode, the server requires authentication, blocks staff-only coupons for non-admin users, and enforces the max_uses limit.</p>
+    `,
+    sampleQuery: `query {\n  coupons {\n    id\n    code\n    discount_percent\n    max_uses\n    current_uses\n    is_active\n  }\n}`,
+    vulnerableCode: `applyCoupon: async (_, { code }) => {\n  // INSECURE: No authentication required. No rate limiting.\n  // No enforcement of max_uses limit.\n  const res = await db.query('SELECT * FROM coupons WHERE code = $1', [code]);\n  const coupon = res.rows[0];\n  if (!coupon) throw new Error('Invalid coupon code.');\n\n  // VULNERABILITY: max_uses is never enforced!\n  // current_uses increments forever with no check\n  await db.query(\n    'UPDATE coupons SET current_uses = current_uses + 1 WHERE id = $1',\n    [coupon.id]\n  );\n  return updatedCoupon;\n}`,
+    secureCode: `applyCoupon: async (_, { code }, context) => {\n  // SECURE: Requires authentication, enforces limits\n  if (!context.user) throw new Error('Authentication required.');\n\n  const coupon = await getCoupon(code);\n  if (coupon.current_uses >= coupon.max_uses) {\n    throw new Error('Coupon has reached its maximum number of uses.');\n  }\n  if (coupon.code.startsWith('STAFF') && context.user.role !== 'admin') {\n    throw new Error('This coupon is restricted to staff members.');\n  }\n  // ... increment and return\n}`,
+    mitigation: 'Enforce business rules at the API layer: authenticate users before allowing sensitive operations, implement rate limiting, enforce usage quotas (max_uses), and restrict internal resources (staff coupons) to authorized roles. Use server-side session tracking to prevent repeated abuse.',
+    learning: 'Business logic vulnerabilities are often overlooked because they don\'t involve traditional injection or bypass techniques. APIs must enforce the same business rules that would apply in a physical transaction — a coupon can only be used once, staff discounts require employee verification, and rate limits prevent automated abuse.'
   }
 ];
 
@@ -538,10 +719,14 @@ function initUI() {
   renderSidebarList();
   
   // Navigation elements
-  document.getElementById('go-home').addEventListener('click', showDashboard);
-  document.getElementById('back-to-dashboard').addEventListener('click', showDashboard);
-  document.getElementById('ref-back-to-dashboard').addEventListener('click', showDashboard);
-  document.getElementById('nav-docs-link').addEventListener('click', (e) => {
+  const goHomeBtn = document.getElementById('go-home');
+  if (goHomeBtn) goHomeBtn.addEventListener('click', showDashboard);
+  const backBtn = document.getElementById('back-to-dashboard');
+  if (backBtn) backBtn.addEventListener('click', showDashboard);
+  const refBackBtn = document.getElementById('ref-back-to-dashboard');
+  if (refBackBtn) refBackBtn.addEventListener('click', showDashboard);
+  const docsLink = document.getElementById('nav-docs-link');
+  if (docsLink) docsLink.addEventListener('click', (e) => {
     e.preventDefault();
     loadReferenceArticle('resolver-security');
   });
@@ -750,7 +935,8 @@ function loadReferenceArticle(key) {
 
   activeView = 'reference';
   document.querySelectorAll('.content-view').forEach(v => v.classList.remove('active'));
-  document.getElementById('reference-view').classList.add('active');
+  const refView = document.getElementById('reference-view');
+  if (refView) refView.classList.add('active');
 
   // Highlight reference link in sidebar
   document.querySelectorAll('.sidebar-nav li').forEach(li => li.classList.remove('active'));
@@ -758,8 +944,10 @@ function loadReferenceArticle(key) {
   if (activeLi) activeLi.classList.add('active');
 
   // Fill content
-  document.getElementById('ref-title').textContent = art.title;
-  document.getElementById('ref-content').innerHTML = art.content;
+  const refTitle = document.getElementById('ref-title');
+  if (refTitle) refTitle.textContent = art.title;
+  const refContent = document.getElementById('ref-content');
+  if (refContent) refContent.innerHTML = art.content;
 }
 
 // Update UI elements based on Learning Mode (Beginner vs Expert)

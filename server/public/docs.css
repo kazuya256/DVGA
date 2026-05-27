@@ -454,6 +454,7 @@ p code, li code {
   padding: 6px 16px;
   border-radius: 6px;
   transition: all 0.2s ease;
+  pointer-events: none;
 }
 .solution-details[open] .solution-summary .reveal-btn {
   background: rgba(244, 63, 94, 0.08);

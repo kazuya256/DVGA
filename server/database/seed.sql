@@ -19,3 +19,15 @@ INSERT INTO comments (user_id, comment_text) VALUES
 INSERT INTO feedback (email, message, status) VALUES
 ('developer@company.local', 'The endpoint performance is slow when fetching nested orders.', 'resolved'),
 ('pester@hacker.org', 'Nice lab. I found a couple of cool vulnerabilities.', 'pending');
+
+-- Seed Coupons (API6: Unrestricted Access to Sensitive Business Flows)
+INSERT INTO coupons (code, discount_percent, max_uses, current_uses, is_active, created_by) VALUES
+('WELCOME10', 10, 1, 0, TRUE, 1),
+('VIP50', 50, 1, 0, TRUE, 1),
+('STAFF75', 75, 3, 0, TRUE, 1);
+
+-- Seed Transactions (API5: Broken Function Level Authorization)
+INSERT INTO transactions (from_user_id, to_user_id, amount, description, status) VALUES
+(1, 2, 500.00, 'Salary payment to Alice', 'completed'),
+(1, 3, 500.00, 'Salary payment to Bob', 'completed'),
+(2, 3, 25.00, 'Alice paid Bob for lunch', 'completed');

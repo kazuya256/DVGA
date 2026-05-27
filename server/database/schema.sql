@@ -4,6 +4,8 @@
 -- =========================================================================
 
 -- Drop tables if they exist (for db:reset convenience)
+DROP TABLE IF EXISTS transactions CASCADE;
+DROP TABLE IF EXISTS coupons CASCADE;
 DROP TABLE IF EXISTS files CASCADE;
 DROP TABLE IF EXISTS feedback CASCADE;
 DROP TABLE IF EXISTS comments CASCADE;
@@ -71,4 +73,26 @@ CREATE TABLE files (
     filename VARCHAR(255) NOT NULL,
     file_path VARCHAR(255) NOT NULL,
     uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Create Coupons table (API6: Unrestricted Access to Sensitive Business Flows)
+CREATE TABLE coupons (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    discount_percent INTEGER NOT NULL,
+    max_uses INTEGER DEFAULT 1,
+    current_uses INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Create Transactions table (API5: Broken Function Level Authorization)
+CREATE TABLE transactions (
+    id SERIAL PRIMARY KEY,
+    from_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    to_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    description TEXT,
+    status VARCHAR(50) DEFAULT 'completed',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

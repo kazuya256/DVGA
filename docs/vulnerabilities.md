@@ -71,3 +71,99 @@ This document catalogs the 16 vulnerabilities implemented in **DVGA-Node**, incl
 ## 16. Weak Password Policy
 * **Risk:** Standard dictionary logins succeed.
 * **Fix:** Restrict accounts creation to strong password structures.
+
+---
+
+## 17. Broken Authentication
+* **OWASP Reference:** [API2:2023](https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/)
+* **Risk:** The `loginWithToken` mutation accepts ANY session token value without server-side verification. An attacker who knows a user's email can authenticate as that user by providing any arbitrary string as the `sessionToken`. This completely bypasses password-based authentication.
+* **Exploit:**
+  ```graphql
+  mutation {
+    loginWithToken(email: "admin@lab.local", sessionToken: "any-string-works") {
+      token
+      user { id email role is_admin }
+    }
+  }
+  ```
+* **Impact:** Full account takeover of any user (including admin) without knowing their password.
+* **Fix:** Disable unverified token-based login. If session refresh is needed, validate tokens against a server-side session store (Redis/database), check expiration, and bind to device fingerprints:
+  ```javascript
+  // Reject all token-based logins — force password authentication
+  throw new Error('Token-based authentication is disabled.');
+  ```
+
+## 18. Broken Object Property Level Authorization
+* **OWASP Reference:** [API3:2023](https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/)
+* **Risk:** The `updateUserProfile` mutation blindly applies ALL submitted fields — including privileged properties `role` and `is_admin` — without checking whether the authenticated user is authorized to modify those properties. A regular user can escalate their own privileges to admin via mass assignment.
+* **Exploit (as Alice, user ID 2):**
+  ```graphql
+  mutation {
+    updateUserProfile(userId: "2", role: "admin", is_admin: true) {
+      id email role is_admin message
+    }
+  }
+  ```
+* **Impact:** Privilege escalation — any user can make themselves an admin.
+* **Fix:** Implement property-level authorization. Regular users can only modify non-privileged fields (e.g., `email`). Privileged fields (`role`, `is_admin`) require admin role:
+  ```javascript
+  if ((role !== undefined || is_admin !== undefined) && context.user.role !== 'admin') {
+    throw new Error('Only administrators can modify role or admin status.');
+  }
+  ```
+
+## 19. Broken Function Level Authorization
+* **OWASP Reference:** [API5:2023](https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/)
+* **Risk:** Administrative functions (`transferFunds`, `deleteUser`, `transactions` query) are exposed to any authenticated user without role verification. A regular user can transfer funds between ANY accounts, view all financial records, or delete other user accounts.
+* **Exploit (as Alice — transfer funds from Admin):**
+  ```graphql
+  mutation {
+    transferFunds(fromUserId: "1", toUserId: "2", amount: 10000, description: "Stolen") {
+      id amount description status
+    }
+  }
+  ```
+* **Exploit (as Alice — view admin financial records):**
+  ```graphql
+  query {
+    transactions { id from_user_id to_user_id amount description status }
+  }
+  ```
+* **Impact:** Financial fraud, unauthorized data access, account deletion.
+* **Fix:** Enforce role-based access control (RBAC) on every privileged resolver:
+  ```javascript
+  if (!context.user || context.user.role !== 'admin') {
+    throw new Error('Access Denied: Only administrators can perform fund transfers.');
+  }
+  ```
+
+## 20. Unrestricted Access to Sensitive Business Flows
+* **OWASP Reference:** [API6:2023](https://owasp.org/API-Security/editions/2023/en/0xa6-unrestricted-access-to-sensitive-business-flows/)
+* **Risk:** The coupon system has no authentication, no rate limiting, and no enforcement of usage limits. Attackers can: (1) enumerate all coupon codes including internal staff discounts without logging in, (2) apply high-value staff coupons (75% off) as anonymous users, and (3) redeem the same coupon unlimited times, ignoring the `max_uses` limit.
+* **Exploit (enumerate coupons without auth):**
+  ```graphql
+  query {
+    coupons { id code discount_percent max_uses current_uses is_active }
+  }
+  ```
+* **Exploit (abuse staff coupon repeatedly):**
+  ```graphql
+  mutation {
+    applyCoupon(code: "STAFF75") {
+      id code discount_percent current_uses max_uses
+    }
+  }
+  ```
+  Run 5+ times — `current_uses` exceeds `max_uses` with no enforcement.
+* **Impact:** Financial loss from unlimited discount abuse, internal coupon code leakage.
+* **Fix:** Require authentication, enforce `max_uses` limits, restrict internal coupons to staff roles, and implement rate limiting:
+  ```javascript
+  if (!context.user) throw new Error('Authentication required.');
+  if (coupon.current_uses >= coupon.max_uses) {
+    throw new Error('Coupon has reached its maximum number of uses.');
+  }
+  if (coupon.code.startsWith('STAFF') && context.user.role !== 'admin') {
+    throw new Error('This coupon is restricted to staff members.');
+  }
+  ```
+
